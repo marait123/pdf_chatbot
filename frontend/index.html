@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #uploaded-documents {
+            margin-top: 20px;
+        }
+        #chat {
+            margin-top: 20px;
+        }
+        #messages {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+        .message.user {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDF Chatbot</h1>
+    <form id="upload-form">
+        <input type="file" id="file-input" name="file" accept="application/pdf" required>
+        <button type="submit">Upload Document</button>
+    </form>
+
+    <div id="uploaded-documents">
+        <h2>Uploaded Documents</h2>
+        <ul id="documents-list"></ul>
+    </div>
+
+    <div id="chat">
+        <h2>Chat</h2>
+        <div id="messages"></div>
+        <form id="chat-form">
+            <input type="text" id="chat-input" placeholder="Type your message..." required>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const fileInput = document.getElementById('file-input');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const response = await fetch('/documents/', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                loadUploadedDocuments();
+            } else {
+                alert('Failed to upload document');
+            }
+        });
+
+        async function loadUploadedDocuments() {
+            const response = await fetch('/documents/');
+            const data = await response.json();
+            const documentsList = document.getElementById('documents-list');
+            documentsList.innerHTML = '';
+            data.documents.forEach(doc => {
+                const li = document.createElement('li');
+                li.textContent = doc.title;
+                documentsList.appendChild(li);
+            });
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const chatInput = document.getElementById('chat-input');
+            const message = chatInput.value;
+            chatInput.value = '';
+            console.log("hello you are here");
+            const response = await fetch('/chat/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: message })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                addMessage('user', message);
+                addMessage('ai', data.answer);
+            } else {
+                alert('Failed to get response');
+            }
+        });
+
+        function addMessage(sender, text) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', sender);
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        loadUploadedDocuments();
+    </script>
+</body>
+</html>

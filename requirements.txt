@@ -1,0 +1,9 @@
+requests
+fastapi
+pydantic
+python-dotenv
+uvicorn
+jinja2
+PyMuPDF
+faiss-cpu
+python-multipart
