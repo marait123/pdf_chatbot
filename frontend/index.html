@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Chatbot</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -20,34 +21,85 @@
             padding: 10px;
             height: 300px;
             overflow-y: scroll;
+            background-color: #f8f9fa;
         }
         .message {
             margin-bottom: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
         }
         .message.user {
-            text-align: right;
+            text-align: left;
+            background-color: #d1ecf1;
+        }
+        .message.ai {
+            text-align: left;
+            background-color: #c2f3bd;
+        }
+        .loading {
+            text-align: center;
+            font-style: italic;
+            color: #999;
+        }
+        .spinner-border {
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 0.5rem;
+        }
+        .markdown-content {
+            padding: 8px;
+        }
+        .markdown-content p {
+            margin: 0 0 1em 0;
+        }
+        .markdown-content code {
+            background: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .markdown-content pre {
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .user-content {
+            padding: 8px;
+            white-space: pre-wrap; /* Preserves whitespace and line breaks */
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <h1>PDF Chatbot</h1>
-    <form id="upload-form">
-        <input type="file" id="file-input" name="file" accept="application/pdf" required>
-        <button type="submit">Upload Document</button>
-    </form>
-
-    <div id="uploaded-documents">
-        <h2>Uploaded Documents</h2>
-        <ul id="documents-list"></ul>
-    </div>
-
-    <div id="chat">
-        <h2>Chat</h2>
-        <div id="messages"></div>
-        <form id="chat-form">
-            <input type="text" id="chat-input" placeholder="Type your message..." required>
-            <button type="submit">Send</button>
+    <div class="container">
+        <h1 class="text-center my-4">PDF Chatbot</h1>
+        <form id="upload-form" class="mb-4">
+            <div class="input-group">
+                <input type="file" id="file-input" name="file" accept="application/pdf" class="form-control" required>
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-primary">Upload Document</button>
+                </div>
+            </div>
+            <div id="upload-spinner" class="text-center mt-3" style="display: none;">
+                <div class="spinner-border" role="status"></div> Uploading document...
+            </div>
         </form>
+
+        <div id="uploaded-documents" class="mb-4">
+            <h2>Uploaded Documents</h2>
+            <ul id="documents-list" class="list-group"></ul>
+        </div>
+
+        <div id="chat">
+            <h2>Chat</h2>
+            <div id="messages" class="mb-3"></div>
+            <form id="chat-form" class="input-group">
+                <input type="text" id="chat-input" class="form-control" placeholder="Type your message..." required>
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-success">Send</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -57,10 +109,15 @@
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
+            const uploadSpinner = document.getElementById('upload-spinner');
+            uploadSpinner.style.display = 'block';
+
             const response = await fetch('/documents/', {
                 method: 'POST',
                 body: formData
             });
+
+            uploadSpinner.style.display = 'none';
 
             if (response.ok) {
                 loadUploadedDocuments();
@@ -77,6 +134,7 @@
             data.documents.forEach(doc => {
                 const li = document.createElement('li');
                 li.textContent = doc.title;
+                li.classList.add('list-group-item');
                 documentsList.appendChild(li);
             });
         }
@@ -86,7 +144,9 @@
             const chatInput = document.getElementById('chat-input');
             const message = chatInput.value;
             chatInput.value = '';
-            console.log("hello you are here");
+            addMessage('user', message);
+            addLoadingMessage();
+
             const response = await fetch('/chat/', {
                 method: 'POST',
                 headers: {
@@ -95,9 +155,10 @@
                 body: JSON.stringify({ prompt: message })
             });
 
+            removeLoadingMessage();
+
             if (response.ok) {
                 const data = await response.json();
-                addMessage('user', message);
                 addMessage('ai', data.answer);
             } else {
                 alert('Failed to get response');
@@ -106,14 +167,63 @@
 
         function addMessage(sender, text) {
             const messagesDiv = document.getElementById('messages');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', sender);
-            messageDiv.textContent = text;
+            const messageDiv = createMessageElement(text, sender);
             messagesDiv.appendChild(messageDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+        function addLoadingMessage() {
+            const messagesDiv = document.getElementById('messages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.classList.add('loading');
+            loadingDiv.id = 'loading-message';
+            loadingDiv.innerHTML = '<div class="spinner-border" role="status"></div> Generating response...';
+            messagesDiv.appendChild(loadingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeLoadingMessage() {
+            const loadingDiv = document.getElementById('loading-message');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+        }
+
+        async function loadMessages() {
+            const response = await fetch('/messages/');
+            const data = await response.json();
+            data.messages.forEach(msg => {
+                addMessage(msg.type, msg.content);
+            });
+        }
+
+        function createMessageElement(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = sender === 'ai' ? 'markdown-content' : 'user-content';
+            
+            // Only parse markdown for AI messages
+            if (sender === 'ai') {
+                contentDiv.innerHTML = marked.parse(text);
+            } else {
+                contentDiv.textContent = text; // Plain text for user messages
+            }
+            
+            messageDiv.appendChild(contentDiv);
+            return messageDiv;
+        }
+
+        function appendMessage(message, type) {
+            const chatWindow = document.getElementById('chat-window');
+            const messageElement = createMessageElement(message, type);
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
         loadUploadedDocuments();
+        loadMessages();
     </script>
 </body>
 </html>

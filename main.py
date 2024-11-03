@@ -77,9 +77,10 @@ faiss_db = FAISSDatabase()
 # APP global variables
 # =================================================================================================
 prompt = ChatPromptTemplate.from_template("""
-    Answer the following question based only on the provided context and Chat History. 
+    Answer the following question based only on the provided context  and Chat History. 
     Think step by step before providing a detailed answer. 
     I will tip you $1000 if the user finds the answer helpful. 
+    the context provided is constitute parts from the document or documents uploaded by the user.
     <context>
     {context}
     </context>
@@ -155,6 +156,17 @@ async def upload_file(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"Failed to upload file: {str(e)}")
         return JSONResponse(status_code=500, content={"message": "Failed to upload file"})
+
+
+@app.get("/messages/")
+def get_messages():
+    serialized_messages = []
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            serialized_messages.append({"type": "user", "content": message.content})
+        elif isinstance(message, AIMessage):
+            serialized_messages.append({"type": "ai", "content": message.content})
+    return {"messages": serialized_messages}
 
 
 @app.get("/documents/")
