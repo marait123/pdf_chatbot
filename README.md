@@ -1,8 +1,3 @@
-I'll create a detailed README.md file that covers setup, installation, and running instructions.
-
-### [README.md](file:///home/mohammed/mywork/interviews/pdf_chatbot/README.md)
-
-````markdown
 # PDF Chatbot
 
 A FastAPI-based chatbot that allows users to upload PDFs and ask questions about their content using Google's Generative AI.
@@ -21,7 +16,6 @@ A FastAPI-based chatbot that allows users to upload PDFs and ask questions about
 git clone <repository-url>
 cd pdf_chatbot
 ```
-````
 
 2. Create a virtual environment:
 
@@ -141,19 +135,4 @@ pdf_chatbot/
 
 ## License
 
-[Your chosen license]
-
-```
-
-This README provides:
-1. Clear setup instructions
-2. Environment configuration guide
-3. Running instructions for both development and production
-4. Docker support
-5. Project structure overview
-6. Basic usage instructions
-
-You can add or modify sections based on specific requirements or additional features of your project.
-
-Made changes.
-```
+mit-license
