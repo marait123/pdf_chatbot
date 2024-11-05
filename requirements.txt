@@ -11,3 +11,4 @@ environ-config==23.2.0
 langchain-community
 langchain_google_genai
 google-generativeai
+pypdf
