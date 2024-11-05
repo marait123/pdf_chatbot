@@ -21,20 +21,34 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from faiss_db import FAISSDatabase
 from langchain.document_loaders import PyPDFLoader
+load_dotenv()
 
+config = get_config()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-load_dotenv()
-
 app = FastAPI()
 
+templates = Jinja2Templates(directory="templates")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 # create uploads directory if it does not exist
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 MAX_CONTEXT_WINDOW = 512  # Define a constant for maximum context window
+
+# =================================================================================================
+# extracting text
+# =================================================================================================
 
 
 def extract_text_from_pdf(pdf_path):
@@ -48,30 +62,37 @@ def extract_text_from_pdf(pdf_path):
         text += page.get_text()
 
     return text
+# =================================================================================================
+
+# =================================================================================================
+# data class definitions
+# =================================================================================================
+
+
+class PromptRequest(BaseModel):
+    prompt: str
 
 
 class Document(BaseModel):
     title: str
     path: str
 
+# =================================================================================================
+
+
+# =================================================================================================
+# Data Stores
+# =================================================================================================
 
 uploaded_documents = []
 messages = [
     #    SystemMessage("Welcome to the chat!"),
     #
 ]
-templates = Jinja2Templates(directory="templates")
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
 faiss_db = FAISSDatabase()
+
+# =================================================================================================
+
 
 # =================================================================================================
 # APP global variables
@@ -91,15 +112,8 @@ prompt = ChatPromptTemplate.from_template("""
     Question: {input}
     """)
 
-# Import the necessary libraries
-
-config = get_config()
-
-# Set up the API key for Google Generative AI
-api_key = config.GOOGLE_API_KEY
-
 # Configure the Google Generative AI client
-genai.configure(api_key=api_key)
+genai.configure(api_key=config.GOOGLE_API_KEY)
 
 # Initialize the ChatGoogleGenerativeAI with the specified model and parameters
 llm = ChatGoogleGenerativeAI(
@@ -126,23 +140,12 @@ trimmer = trim_messages(
 # API Endpoints
 # =================================================================================================
 
-
-class PromptRequest(BaseModel):
-    prompt: str
-
-
-# return the main site files at ./frontend/index.html
-
-
 @app.get("/", response_class=HTMLResponse)
-async def main():
-    with open("frontend/index.html") as f:
-        return HTMLResponse(content=f.read())
+async def main(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 
 # an endpoint where user can upload a file and this file should be save
-
-
 @app.post("/documents/", response_model=Document)
 async def upload_file(file: UploadFile = File(...)):
     try:
@@ -228,8 +231,9 @@ async def prompt(request: PromptRequest):
     except Exception as e:
         logger.error(f"Failed to process chat request: {str(e)}")
         return JSONResponse(status_code=500, content={"message": "Failed to process chat request"})
-
-# Add exception handlers
+# =================================================================================================
+#  exception handlers
+# =================================================================================================
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -249,9 +253,13 @@ async def general_exception_handler(request, exc):
     logger.error(f"An error occurred: {str(exc)}")
     return JSONResponse(status_code=500, content={"message": "Internal server error"})
 
+# =================================================================================================
 
+# =================================================================================================
+# main
+# =================================================================================================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8023)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 # command for running the server in development mode
 # uvicorn main:app --reload

@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  documentchat:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  uploads:
+  faiss_index:

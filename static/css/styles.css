@@ -1,0 +1,74 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+
+#uploaded-documents {
+    margin-top: 20px;
+}
+
+#chat {
+    margin-top: 20px;
+}
+
+#messages {
+    border: 1px solid #ccc;
+    padding: 10px;
+    height: 300px;
+    overflow-y: scroll;
+    background-color: #f8f9fa;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.message.user {
+    text-align: left;
+    background-color: #d1ecf1;
+}
+
+.message.ai {
+    text-align: left;
+    background-color: #c2f3bd;
+}
+
+.loading {
+    text-align: center;
+    font-style: italic;
+    color: #999;
+}
+
+.spinner-border {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.5rem;
+}
+
+.markdown-content {
+    padding: 8px;
+}
+
+.markdown-content p {
+    margin: 0 0 1em 0;
+}
+
+.markdown-content code {
+    background: #f0f0f0;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.markdown-content pre {
+    background: #f8f8f8;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.user-content {
+    padding: 8px;
+    white-space: pre-wrap;
+}

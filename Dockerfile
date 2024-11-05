@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+# disable buffering  logs
+ENV PYTHONUNBUFFERED 1
+
 # Set the working directory
 WORKDIR /app
 

@@ -1,0 +1,44 @@
+{% extends "base.html" %} {% block content %}
+<h1 class="text-center my-4">PDF Chatbot</h1>
+<form id="upload-form" class="mb-4">
+  <div class="input-group">
+    <input
+      type="file"
+      id="file-input"
+      name="file"
+      accept="application/pdf"
+      class="form-control"
+      required
+    />
+    <div class="input-group-append">
+      <button type="submit" class="btn btn-primary">Upload Document</button>
+    </div>
+  </div>
+  <div id="upload-spinner" class="text-center mt-3" style="display: none">
+    <div class="spinner-border" role="status"></div>
+    Uploading document...
+  </div>
+</form>
+
+<div id="uploaded-documents" class="mb-4">
+  <h2>Uploaded Documents</h2>
+  <ul id="documents-list" class="list-group"></ul>
+</div>
+
+<div id="chat">
+  <h2>Chat</h2>
+  <div id="messages" class="mb-3"></div>
+  <form id="chat-form" class="input-group">
+    <input
+      type="text"
+      id="chat-input"
+      class="form-control"
+      placeholder="Type your message..."
+      required
+    />
+    <div class="input-group-append">
+      <button type="submit" class="btn btn-success">Send</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
