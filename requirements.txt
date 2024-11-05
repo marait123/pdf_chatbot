@@ -7,3 +7,4 @@ jinja2
 PyMuPDF
 faiss-cpu
 python-multipart
+environ-config==23.2.0
