@@ -12,3 +12,5 @@ langchain-community
 langchain_google_genai
 google-generativeai
 pypdf
+psycopg2-binary
+sqlalchemy

@@ -102,9 +102,10 @@ function createMessageElement(text, sender) {
 }
 
 async function loadMessages() {
+    console.log("adding messages ya bro")
     const response = await fetch('/messages/');
     const data = await response.json();
-    data.messages.forEach(msg => {
+    data.forEach(msg => {
         addMessage(msg.type, msg.content);
     });
 }

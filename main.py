@@ -8,12 +8,14 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.messages import SystemMessage, trim_messages, AIMessage, HumanMessage
 import fitz  # PyMuPDF
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request, File, UploadFile
+from fastapi import FastAPI, Request, File, UploadFile, Depends
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from config import get_config
+from sqlalchemy.orm import Session
+from database import get_db, Message, Document as DBDocument
 
 from dotenv import load_dotenv
 import logging
@@ -41,9 +43,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# create uploads directory if it does not exist
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
+# create directories if they don't exist
+for directory in ["uploads", os.path.dirname(config.FAISS_DB_PATH)]:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 MAX_CONTEXT_WINDOW = 512  # Define a constant for maximum context window
 
 # =================================================================================================
@@ -84,13 +87,9 @@ class Document(BaseModel):
 # Data Stores
 # =================================================================================================
 
-uploaded_documents = []
-messages = [
-    #    SystemMessage("Welcome to the chat!"),
-    #
-]
+# uploaded_documents = []
 faiss_db = FAISSDatabase()
-
+faiss_db._load_db()
 # =================================================================================================
 
 
@@ -147,53 +146,58 @@ async def main(request: Request):
 
 # an endpoint where user can upload a file and this file should be save
 @app.post("/documents/", response_model=Document)
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
         logger.info(f"Received file: {file.filename}")
-        print(f"Received file: {file.filename}")
         file_location = f"./uploads/{file.filename}"
         with open(file_location, "wb") as f:
             f.write(file.file.read())
 
-        # Extract text from the uploaded PDF
-        # extracted_text = extract_text_from_pdf(file_location)
+        # Create database entry
+        db_document = DBDocument(
+            title=file.filename,
+            path=file_location
+        )
+        db.add(db_document)
+        db.commit()
+        db.refresh(db_document)
 
-        # Add the document to the uploaded_documents array
-        document = Document(title=file.filename, path=file_location)
-        uploaded_documents.append(document)
         loader = PyPDFLoader(file_location)
         docs = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=config.ML.chunk_size, chunk_overlap=config.ML.chunk_overlap)
 
         documents = text_splitter.split_documents(docs)
-        # Add the chunks to the FAISS database
         faiss_db.add_documents(documents)
 
-        return document
+        return Document(title=file.filename, path=file_location)
     except Exception as e:
-        logger.error(f"Failed to upload file: {str(e)}")
+        logger.error(f"Failed to upload file: {str(e)}", exc_info=True)
         return JSONResponse(status_code=500, content={"message": "Failed to upload file"})
 
 
 @app.get("/messages/")
-def get_messages():
-    serialized_messages = []
-    for message in messages:
-        if isinstance(message, HumanMessage):
-            serialized_messages.append({"type": "user", "content": message.content})
-        elif isinstance(message, AIMessage):
-            serialized_messages.append({"type": "ai", "content": message.content})
-    return {"messages": serialized_messages}
+def get_messages(db: Session = Depends(get_db)):
+    return db.query(Message).order_by(Message.timestamp).all()
+
+
+@app.post("/messages/")
+def create_message(type: str, content: str, db: Session = Depends(get_db)):
+    db_message = Message(type=type, content=content)
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
 
 
 @app.get("/documents/")
-def get_uploaded_documents():
-    return {"documents": uploaded_documents}
+def get_uploaded_documents(db: Session = Depends(get_db)):
+    documents = db.query(DBDocument).order_by(DBDocument.timestamp.desc()).all()
+    return {"documents": [Document(title=doc.title, path=doc.path) for doc in documents]}
 
 
 @app.post("/chat/")
-async def prompt(request: PromptRequest):
+async def prompt(request: PromptRequest, db: Session = Depends(get_db)):
     """
     Handles the prompt request by retrieving relevant documents and generating a response.
 
@@ -203,33 +207,36 @@ async def prompt(request: PromptRequest):
     Returns:
         dict: A dictionary containing the AI's response to the user's prompt.
     """
-    if not uploaded_documents:
-        return JSONResponse(status_code=400, content={"message": "No documents uploaded. Please upload a document first."})
+    # Check if there are any documents in the database
+    doc_count = db.query(DBDocument).count()
+    if doc_count == 0:
+        return {"answer": "No documents uploaded. Please upload a document first."}
 
     try:
         retriever = faiss_db.db.as_retriever()
         # Create retrieval chain by combining retriever and document chain
         retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-        user_query = request.prompt
-        # form the chat history
+        # Get messages from database for chat history
+        db_messages = db.query(Message).order_by(Message.timestamp).all()
         chat_history = ""
-        trimmed_messages = trimmer.invoke(messages)
 
-        for message in trimmed_messages:
-            if isinstance(message, HumanMessage):
-                chat_history += f"User: {message.content}\n"
-            elif isinstance(message, AIMessage):
-                chat_history += f"AI: {message.content}\n"
+        for message in db_messages:
+            chat_history += f"{message.type.capitalize()}: {message.content}\n"
 
-        response = retrieval_chain.invoke({"input": user_query, "chat_history": chat_history})
-        # now save the message to the messages array
-        messages.append(HumanMessage(content=request.prompt))
-        messages.append(AIMessage(content=response['answer']))
+        response = retrieval_chain.invoke({"input": request.prompt, "chat_history": chat_history})
+
+        # Save messages to database
+        user_message = Message(type="user", content=request.prompt)
+        ai_message = Message(type="ai", content=response['answer'])
+
+        db.add(user_message)
+        db.add(ai_message)
+        db.commit()
 
         return {"answer": response['answer']}
     except Exception as e:
-        logger.error(f"Failed to process chat request: {str(e)}")
+        logger.error(f"Failed to process chat request: {str(e)}", exc_info=True)
         return JSONResponse(status_code=500, content={"message": "Failed to process chat request"})
 # =================================================================================================
 #  exception handlers
@@ -238,19 +245,19 @@ async def prompt(request: PromptRequest):
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request, exc):
-    logger.error(f"HTTP error occurred: {exc.detail}")
+    logger.error(f"HTTP error occurred: {exc.detail}", exc_info=True)
     return JSONResponse(status_code=exc.status_code, content={"message": exc.detail})
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
-    logger.error(f"Validation error occurred: {exc.errors()}")
+    logger.error(f"Validation error occurred: {exc.errors()}", exc_info=True)
     return JSONResponse(status_code=400, content={"message": "Validation error", "details": exc.errors()})
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    logger.error(f"An error occurred: {str(exc)}")
+    logger.error(f"An error occurred: {str(exc)}", exc_info=True)
     return JSONResponse(status_code=500, content={"message": "Internal server error"})
 
 # =================================================================================================

@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 /uploads
 /temp
+/faiss_index
+chat.db

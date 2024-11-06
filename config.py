@@ -47,6 +47,8 @@ class Config:
 
 @lru_cache(1)
 def get_config():
+    import os
+    os.environ['GOOGLE_API_KEY'] = os.environ.get('APP_GOOGLE_API_KEY')
     conf = environ.to_config(Config)
     return conf
 
