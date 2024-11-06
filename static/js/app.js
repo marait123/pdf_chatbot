@@ -2,22 +2,32 @@ document.getElementById('upload-form').addEventListener('submit', async (event) 
     event.preventDefault();
     const fileInput = document.getElementById('file-input');
     const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    
+    // Append all selected files
+    for (let file of fileInput.files) {
+        formData.append('files', file);
+    }
 
     const uploadSpinner = document.getElementById('upload-spinner');
     uploadSpinner.style.display = 'block';
 
-    const response = await fetch('/documents/', {
-        method: 'POST',
-        body: formData
-    });
+    try {
+        const response = await fetch('/documents/', {
+            method: 'POST',
+            body: formData
+        });
 
-    uploadSpinner.style.display = 'none';
-
-    if (response.ok) {
-        loadUploadedDocuments();
-    } else {
-        alert('Failed to upload document');
+        if (response.ok) {
+            loadUploadedDocuments();
+            fileInput.value = ''; // Clear the file input
+        } else {
+            const error = await response.json();
+            alert(error.message || 'Failed to upload documents');
+        }
+    } catch (error) {
+        alert('Error uploading documents');
+    } finally {
+        uploadSpinner.style.display = 'none';
     }
 });
 

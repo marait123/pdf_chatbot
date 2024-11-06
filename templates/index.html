@@ -8,6 +8,7 @@
       name="file"
       accept="application/pdf"
       class="form-control"
+      multiple
       required
     />
     <div class="input-group-append">
@@ -22,7 +23,11 @@
 
 <div id="uploaded-documents" class="mb-4">
   <h2>Uploaded Documents</h2>
-  <ul id="documents-list" class="list-group"></ul>
+  <ul
+    id="documents-list"
+    class="list-group"
+    style="max-height: 200px; overflow-y: auto"
+  ></ul>
 </div>
 
 <div id="chat">

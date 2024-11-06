@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from config import get_config
 from sqlalchemy.orm import Session
 from database import get_db, Message, Document as DBDocument
-
+from typing import List
 from dotenv import load_dotenv
 import logging
 from fastapi.staticfiles import StaticFiles
@@ -89,7 +89,6 @@ class Document(BaseModel):
 
 # uploaded_documents = []
 faiss_db = FAISSDatabase()
-faiss_db._load_db()
 # =================================================================================================
 
 
@@ -145,35 +144,50 @@ async def main(request: Request):
 
 
 # an endpoint where user can upload a file and this file should be save
-@app.post("/documents/", response_model=Document)
-async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
+@app.post("/documents/")
+async def upload_files(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
     try:
-        logger.info(f"Received file: {file.filename}")
-        file_location = f"./uploads/{file.filename}"
-        with open(file_location, "wb") as f:
-            f.write(file.file.read())
+        uploaded_documents = []
+        for file in files:
+            if not file.filename.lower().endswith('.pdf'):
+                continue
 
-        # Create database entry
-        db_document = DBDocument(
-            title=file.filename,
-            path=file_location
-        )
-        db.add(db_document)
+            logger.info(f"Processing file: {file.filename}")
+            file_location = f"./uploads/{file.filename}"
+
+            # Save file
+            with open(file_location, "wb") as f:
+                f.write(await file.read())
+
+            # Create database entry
+            db_document = DBDocument(
+                title=file.filename,
+                path=file_location
+            )
+            db.add(db_document)
+
+            # Process document for FAISS
+            loader = PyPDFLoader(file_location)
+            docs = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=config.ML.chunk_size,
+                chunk_overlap=config.ML.chunk_overlap
+            )
+
+            documents = text_splitter.split_documents(docs)
+            faiss_db.add_documents(documents)
+
+            uploaded_documents.append(Document(title=file.filename, path=file_location))
+
         db.commit()
-        db.refresh(db_document)
+        return {"documents": uploaded_documents}
 
-        loader = PyPDFLoader(file_location)
-        docs = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=config.ML.chunk_size, chunk_overlap=config.ML.chunk_overlap)
-
-        documents = text_splitter.split_documents(docs)
-        faiss_db.add_documents(documents)
-
-        return Document(title=file.filename, path=file_location)
     except Exception as e:
-        logger.error(f"Failed to upload file: {str(e)}", exc_info=True)
-        return JSONResponse(status_code=500, content={"message": "Failed to upload file"})
+        logger.error(f"Failed to upload files: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"message": f"Failed to upload files: {str(e)}"}
+        )
 
 
 @app.get("/messages/")
