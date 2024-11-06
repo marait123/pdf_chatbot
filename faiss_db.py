@@ -26,7 +26,6 @@ class FAISSDatabase:
     def _load_db(self) -> None:
         """Load FAISS database from disk if it exists"""
         try:
-            print("loading db")
             if os.path.exists(config.FAISS_DB_PATH):
                 self._db = FAISS.load_local(
                     config.FAISS_DB_PATH,

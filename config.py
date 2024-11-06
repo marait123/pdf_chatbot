@@ -55,7 +55,7 @@ def get_config():
 
 def show_config_help():
     import environ
-    print(environ.generate_help(Config, display_defaults=True))
+    print(environ.generate_help(Config, display_defaults=True))  # noqa
 
 
 # NOTE: uncomment to see the help message
