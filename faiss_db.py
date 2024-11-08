@@ -19,7 +19,7 @@ class FAISSDatabase:
         if cls._instance is None:
             cls._instance = super(FAISSDatabase, cls).__new__(cls)
             cls._instance._db = None
-            cls._instance._embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+            cls._instance._embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
             cls._instance._load_db()
         return cls._instance
 

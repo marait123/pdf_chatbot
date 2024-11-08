@@ -16,7 +16,7 @@ class ModelConfig:
 
 @environ.config(frozen=True)
 class TrimmerConfig:
-    max_tokens = environ.var(default=65000)
+    max_tokens = environ.var(default=100000)
     strategy = environ.var(default="last")
     include_system = environ.var(default=True)
     allow_partial = environ.var(default=False)
@@ -28,8 +28,8 @@ class MlConfig:
     bucket_name = environ.var(default="genai")
     model = environ.group(ModelConfig)
     trimmer = environ.group(TrimmerConfig)
-    chunk_size = environ.var(default=1000)
-    chunk_overlap = environ.var(default=200)
+    chunk_size = environ.var(default=18*1000)
+    chunk_overlap = environ.var(default=2000)
 
 
 @environ.config(prefix=ENV_CONFIG_PREFIX, frozen=True)
