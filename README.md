@@ -2,6 +2,8 @@
 
 A FastAPI-based chatbot that allows users to upload PDFs and ask questions about their content using Google's Generative AI.
 
+![pdf_chat_image](./static/pdf_chat.gif)
+
 ## Prerequisites
 
 - Python 3.12 or higher
